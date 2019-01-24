@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
-using System.Collections;
 
 public class MoveFromInput : MonoBehaviour
 {
     public float speed;
+    public GameObject relativeToObject;
     private Rigidbody rigidBody;
 
     void Start()
@@ -16,7 +16,7 @@ public class MoveFromInput : MonoBehaviour
         float moveHorizontal = Input.GetAxis("Horizontal");
         float moveVertical = Input.GetAxis("Vertical");
 
-        Vector3 movement = new Vector3(moveHorizontal, 0, moveVertical);
-        rigidBody.AddForce(movement * speed);
+        Vector3 worldSpaceRelativeVector = relativeToObject.transform.TransformVector(new Vector3(moveHorizontal, 0, moveVertical)).normalized;
+        rigidBody.AddForce(worldSpaceRelativeVector * speed);
     }
 }
