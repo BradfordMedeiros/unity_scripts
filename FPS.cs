@@ -1,8 +1,5 @@
-using System;
 using UnityEngine;
 using UnityStandardAssets.CrossPlatformInput;
-using UnityStandardAssets.Utility;
-using Random = UnityEngine.Random;
 
 namespace UnityStandardAssets.Characters.FirstPerson
 {
@@ -16,26 +13,24 @@ namespace UnityStandardAssets.Characters.FirstPerson
         public float gravityMultiplier;
         [SerializeField] private MouseLook m_MouseLook;
 
-        private Camera m_Camera;
+        private Camera camera;
         private bool shouldJump;
-        private Vector2 m_Input;
-        private Vector3 m_MoveDir = Vector3.zero;
+        private Vector3 currentMovementVector = Vector3.zero;
         private CharacterController characterController;
-        private CollisionFlags m_CollisionFlags;
         private bool lastFrameGrounded;
         private bool isJumping;
 
         private void Start()
         {
             characterController = GetComponent<CharacterController>();
-            m_Camera = Camera.main;
+            camera = Camera.main;
             isJumping = false;
-            m_MouseLook.Init(transform, m_Camera.transform);
+            m_MouseLook.Init(transform, camera.transform);
         }
 
         private void Update()
         {
-            m_MouseLook.LookRotation(transform, m_Camera.transform);
+            m_MouseLook.LookRotation(transform, camera.transform);
             if (!shouldJump)
             {
                 shouldJump = CrossPlatformInputManager.GetButton("Jump") && characterController.isGrounded;
@@ -43,12 +38,12 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
             if (!lastFrameGrounded && characterController.isGrounded)
             {
-                m_MoveDir.y = 0f;
+                currentMovementVector.y = 0f;
                 isJumping = false;
             }
             if (!characterController.isGrounded && !isJumping && lastFrameGrounded)
             {
-                m_MoveDir.y = 0f;
+                currentMovementVector.y = 0f;
             }
             lastFrameGrounded = characterController.isGrounded;
         }
@@ -56,51 +51,47 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private void FixedUpdate()
         {
             float speed;
-            GetSpeedAndSetMInputFromInput(out speed);
+            Vector2 motionVector;
 
-            Vector3 desiredMove = transform.forward * m_Input.y + transform.right * m_Input.x;
+            GetSpeedAndSetMInputFromInput(out speed, out motionVector);
+
+            Vector3 desiredMove = transform.forward * motionVector.y + transform.right * motionVector.x;
             RaycastHit hitInfo;
             Physics.SphereCast(transform.position, characterController.radius, Vector3.down, out hitInfo,
                                characterController.height / 2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
             desiredMove = Vector3.ProjectOnPlane(desiredMove, hitInfo.normal).normalized;
 
-            m_MoveDir.x = desiredMove.x * speed;
-            m_MoveDir.z = desiredMove.z * speed;
+            currentMovementVector.x = desiredMove.x * speed;
+            currentMovementVector.z = desiredMove.z * speed;
 
 
             if (characterController.isGrounded)
             {
-                m_MoveDir.y = -stickToGroundForce;
+                currentMovementVector.y = -stickToGroundForce;
 
                 if (shouldJump)
                 {
-                    m_MoveDir.y = jumpSpeed;
+                    currentMovementVector.y = jumpSpeed;
                     shouldJump = false;
                     isJumping = true;
                 }
             }
             else
             {
-                m_MoveDir += Physics.gravity * gravityMultiplier * Time.fixedDeltaTime;
+                currentMovementVector += Physics.gravity * gravityMultiplier * Time.fixedDeltaTime;
             }
-            m_CollisionFlags = characterController.Move(m_MoveDir * Time.fixedDeltaTime);
-
+            characterController.Move(currentMovementVector * Time.fixedDeltaTime);
         }
 
-        private void GetSpeedAndSetMInputFromInput(out float speed)
+        private void GetSpeedAndSetMInputFromInput(out float speed, out Vector2 motionVector)
         {
             float horizontal = CrossPlatformInputManager.GetAxis("Horizontal");
             float vertical = CrossPlatformInputManager.GetAxis("Vertical");
 
-            bool isWalking = !Input.GetKey(KeyCode.LeftShift);
-            speed = isWalking ? walkSpeed : runSpeed; 
+            motionVector = new Vector2(horizontal, vertical);
+            motionVector.Normalize();
 
-            m_Input = new Vector2(horizontal, vertical);
-
-            if (m_Input.sqrMagnitude > 1)
-            {
-                m_Input.Normalize();
-            }
+            speed = !Input.GetKey(KeyCode.LeftShift) ? walkSpeed : runSpeed;
         }
     }
 }
